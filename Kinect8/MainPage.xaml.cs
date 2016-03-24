@@ -102,7 +102,7 @@ namespace Kinect8
                 this.irPixels[colorPixelIndex++] = intensity;
                 this.irPixels[colorPixelIndex++] = intensity;
                 this.irPixels[colorPixelIndex++] = intensity;
-                this.irPixels[colorPixelIndex++] = 255;
+                this.irPixels[colorPixelIndex++] = intensity;
             }
         }
 
