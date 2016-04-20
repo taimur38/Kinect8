@@ -27,7 +27,8 @@ namespace Kinect8
         Infrared,
         Color,
         Depth,
-        BodyMask
+        BodyMask,
+        BodyJoints
     }
 
     /// <summary>
@@ -48,6 +49,7 @@ namespace Kinect8
 
         private MultiSourceFrameReader multiSourceFrameReader = null;
         private CoordinateMapper coordinateMapper = null;
+        private BodiesManager bodiesManager = null;
 
         private ushort[] ifFrameData;
         private byte[] irPixels = null;
@@ -66,6 +68,8 @@ namespace Kinect8
         //body mask shit
         private DepthSpacePoint[] colorMappedToDepthPoints = null;
 
+        //body joint shit
+        private Canvas canvas;
         KinectSensor sensor;
 
         private void SetupCurrentDisplay(DisplayFrameType newDisplayFrameType)
@@ -73,6 +77,16 @@ namespace Kinect8
             currentDisplayFrameType = newDisplayFrameType;
 
             FrameDescription colorFrameDescription = null;
+            if(this.BodyJointsGrid != null)
+            {
+                this.BodyJointsGrid.Visibility = Visibility.Collapsed;
+            }
+
+            if(this.FrameDisplayImage != null)
+            {
+                this.FrameDisplayImage.Source = null;
+            }
+
             switch (currentDisplayFrameType)
             {
                 case DisplayFrameType.Infrared:
@@ -109,6 +123,20 @@ namespace Kinect8
                     this.colorMappedToDepthPoints = new DepthSpacePoint[colorFrameDescription.Width * colorFrameDescription.Height];
                     this.bitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height);
                     break;
+
+                case DisplayFrameType.BodyJoints:
+                    this.canvas = new Canvas();
+
+                    this.canvas.Clip = new RectangleGeometry();
+                    this.canvas.Clip.Rect = new Rect(0.0, 0.0, this.BodyJointsGrid.Width, this.BodyJointsGrid.Height);
+                    this.canvas.Width = this.BodyJointsGrid.Width;
+                    this.canvas.Height = this.BodyJointsGrid.Height;
+
+                    this.BodyJointsGrid.Visibility = Visibility.Visible;
+                    this.BodyJointsGrid.Children.Clear();
+                    this.BodyJointsGrid.Children.Add(this.canvas);
+                    bodiesManager = new BodiesManager(this.coordinateMapper, this.canvas, this.sensor.BodyFrameSource.BodyCount);
+                    break;
                 default:
                     break;
             }
@@ -122,7 +150,7 @@ namespace Kinect8
 
             this.coordinateMapper = this.sensor.CoordinateMapper;
 
-            this.multiSourceFrameReader = this.sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Infrared | FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex);
+            this.multiSourceFrameReader = this.sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Infrared | FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex | FrameSourceTypes.Body);
 
             this.multiSourceFrameReader.MultiSourceFrameArrived += this.Reader_MultiSourceFrameArrived;
             this.sensor.IsAvailableChanged += this.Sensor_IsAvailableChanged;
@@ -150,6 +178,7 @@ namespace Kinect8
             ColorFrame colorFrame = null;
             DepthFrame df = null;
             BodyIndexFrame biframe = null;
+            BodyFrame bodyFrame = null;
 
             IBuffer depthFrameDataBuffer = null;
             IBuffer bodyIndexFrameData = null;
@@ -173,6 +202,12 @@ namespace Kinect8
                     using(df = msFrame.DepthFrameReference.AcquireFrame())
                     {
                         ShowDepthFrame(df);
+                    }
+                    break;
+                case DisplayFrameType.BodyJoints:
+                    using(bodyFrame = msFrame.BodyFrameReference.AcquireFrame())
+                    {
+                        ShowBodyJoints(bodyFrame);
                     }
                     break;
                 case DisplayFrameType.BodyMask:
@@ -262,6 +297,17 @@ namespace Kinect8
 
             this.bitmap.Invalidate();
             FrameDisplayImage.Source = this.bitmap;
+        }
+
+        private void ShowBodyJoints(BodyFrame bodyFrame)
+        {
+            Body[] bodies = new Body[this.sensor.BodyFrameSource.BodyCount];
+            bool dataReceived = false;
+            if (bodyFrame == null)
+                return;
+
+            bodyFrame.GetAndRefreshBodyData(bodies);
+            this.bodiesManager.UpdateBodiesAndEdges(bodies);
         }
 
         private void ShowDepthFrame(DepthFrame df)
@@ -363,6 +409,11 @@ namespace Kinect8
         private void BodyMask_Click(object sender, RoutedEventArgs e)
         {
             SetupCurrentDisplay(DisplayFrameType.BodyMask);
+        }
+
+        private void BodyJoints_Click(object sender, RoutedEventArgs e)
+        {
+            SetupCurrentDisplay(DisplayFrameType.BodyJoints);
         }
 
         private void ConvertInfraredDataToPixels()

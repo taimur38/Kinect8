@@ -16,6 +16,10 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Style="{StaticResource SubheaderTextBlockStyle}" Text="{Binding StatusText}"/>
             <Image x:Name="FrameDisplayImage" Grid.Row="1" Stretch="Uniform" />
+            <Viewbox Grid.Row="1" HorizontalAlignment="Center">
+                <Grid x:Name="BodyJointsGrid" Background="Transparent" Width="512" Height="414" />
+            </Viewbox>
+                     
             <ScrollViewer Grid.Row="2"
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -24,6 +28,7 @@
                     <Button Content="Color" Click="ColorButton_Click" />
                     <Button Content="Depth" Click="DepthButton_Click" />
                     <Button Content="Body Mask" Click="BodyMask_Click" />
+                    <Button Content="Body Joints" Click="BodyJoints_Click" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>
