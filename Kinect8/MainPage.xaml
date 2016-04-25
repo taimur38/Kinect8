@@ -29,6 +29,7 @@
                     <Button Content="Depth" Click="DepthButton_Click" />
                     <Button Content="Body Mask" Click="BodyMask_Click" />
                     <Button Content="Body Joints" Click="BodyJoints_Click" />
+                    <Button Content="Draw" Click="Draw_Click" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>

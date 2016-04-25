@@ -17,6 +17,8 @@ using Windows.UI.Xaml.Media.Imaging;
 
 using Windows.Storage.Streams;
 using System.Runtime.InteropServices;
+using Windows.UI.Xaml.Shapes;
+using Windows.UI;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234238
 
@@ -28,7 +30,8 @@ namespace Kinect8
         Color,
         Depth,
         BodyMask,
-        BodyJoints
+        BodyJoints,
+        Draw
     }
 
     /// <summary>
@@ -54,7 +57,7 @@ namespace Kinect8
         private ushort[] ifFrameData;
         private byte[] irPixels = null;
 
-        private const float InfraredSourceValueMaximum = (float)ushort.MaxValue;
+        private const float InfraredSourceValueMaximum = (float)500; //ushort.MaxValue;
         private const float InfraredOutputValueMinimum = 0.01f;
         private const float InfraredOutputValueMaximum = 1.0f;
 
@@ -137,6 +140,16 @@ namespace Kinect8
                     this.BodyJointsGrid.Children.Add(this.canvas);
                     bodiesManager = new BodiesManager(this.coordinateMapper, this.canvas, this.sensor.BodyFrameSource.BodyCount);
                     break;
+                case DisplayFrameType.Draw:
+                    this.canvas = new Canvas();
+                    this.canvas.Width = this.BodyJointsGrid.Width;
+                    this.canvas.Height = this.BodyJointsGrid.Height;
+
+                    this.BodyJointsGrid.Visibility = Visibility.Visible;
+                    this.BodyJointsGrid.Children.Clear();
+                    this.BodyJointsGrid.Children.Add(this.canvas);
+                    break;
+                    
                 default:
                     break;
             }
@@ -208,6 +221,12 @@ namespace Kinect8
                     using(bodyFrame = msFrame.BodyFrameReference.AcquireFrame())
                     {
                         ShowBodyJoints(bodyFrame);
+                    }
+                    break;
+                case DisplayFrameType.Draw:
+                    using(bodyFrame = msFrame.BodyFrameReference.AcquireFrame())
+                    {
+                        DrawShit(bodyFrame);
                     }
                     break;
                 case DisplayFrameType.BodyMask:
@@ -288,15 +307,49 @@ namespace Kinect8
                             int depthIndex = (depthY * depthWidth) + depthX;
 
                             if (bodyIndexBytes[depthIndex] != 0xff)
+                            {
+                                // bitmapPixelsPointer[colorIndex] *= bitmapPixelsPointer[colorIndex] > .7 ? (uint)30: (uint)1;
                                 continue;
+                            }
                         }
                     }
-                    bitmapPixelsPointer[colorIndex] = 0;
+                    bitmapPixelsPointer[colorIndex] *= (uint)4;
                 }
             }
 
             this.bitmap.Invalidate();
             FrameDisplayImage.Source = this.bitmap;
+        }
+
+        private void DrawShit(BodyFrame bf)
+        {
+            if (bf == null)
+                return;
+            Body[] bodies = new Body[this.sensor.BodyFrameSource.BodyCount];
+
+            bf.GetAndRefreshBodyData(bodies);
+            foreach (var body in bodies)
+            {
+                var hand = body.Joints[JointType.HandRight];
+
+                var color = Colors.LightGreen;
+                if (body.HandRightConfidence == TrackingConfidence.Low)
+                    color = Colors.CornflowerBlue;
+
+                var point = this.coordinateMapper.MapCameraPointToDepthSpace(hand.Position);
+
+                var ellipse = new Ellipse()
+                {
+                    Visibility = Visibility.Visible,
+                    Height = 4.0,
+                    Width = 4.0,
+                    Fill = new SolidColorBrush(color)
+                };
+
+                this.canvas.Children.Add(ellipse);
+                Canvas.SetLeft(ellipse, point.X);
+                Canvas.SetTop(ellipse, point.Y);
+            }
         }
 
         private void ShowBodyJoints(BodyFrame bodyFrame)
@@ -416,6 +469,13 @@ namespace Kinect8
             SetupCurrentDisplay(DisplayFrameType.BodyJoints);
         }
 
+        private void Draw_Click(object sender, RoutedEventArgs e)
+        {
+            SetupCurrentDisplay(DisplayFrameType.Draw);
+        }
+
+
+
         private void ConvertInfraredDataToPixels()
         {
             int colorPixelIndex = 0;
@@ -445,11 +505,11 @@ namespace Kinect8
             {
                 ushort depth = this.depthFrameData[i];
 
-                byte intensity = (byte)(depth >= minDepth && depth <= maxDepth ? (depth / mapDepthToByte) : 0);
+                int intensity = (depth >= 0 && depth <= maxDepth ? (depth / mapDepthToByte) : 0);
 
-                this.depthPixels[colorPixelIndex++] = intensity;
-                this.depthPixels[colorPixelIndex++] = intensity;
-                this.depthPixels[colorPixelIndex++] = intensity;
+                this.depthPixels[colorPixelIndex++] = (byte)( .4 * intensity + .6);
+                this.depthPixels[colorPixelIndex++] = (byte)( .8 * intensity);
+                this.depthPixels[colorPixelIndex++] = (byte)( .5 * intensity + .3);
                 this.depthPixels[colorPixelIndex++] = 255;
             }
         }

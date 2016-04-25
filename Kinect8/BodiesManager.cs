@@ -161,7 +161,7 @@ namespace Kinect8
             foreach (var bodyInfo in this.bodyInfos)
             {
                 // add left and right hand ellipses of all bodies to canvas
-                this.drawingCanvas.Children.Add(bodyInfo.HandLeftEllipse);
+                //this.drawingCanvas.Children.Add(bodyInfo.HandLeftEllipse);
                 this.drawingCanvas.Children.Add(bodyInfo.HandRightEllipse);
 
                 // add joint ellipses of all bodies to canvas
@@ -171,10 +171,10 @@ namespace Kinect8
                 }
 
                 // add bone lines of all bodies to canvas
-                foreach (var bone in bodyInfo.Bones)
+                /*foreach (var bone in bodyInfo.Bones)
                 {
                     this.drawingCanvas.Children.Add(bodyInfo.BoneLines[bone]);
-                }
+                }*/
             }
 
             // add clipped edges rectanges to main canvas
@@ -325,7 +325,7 @@ namespace Kinect8
                 else
                 {
                     // inferred joints are yellow
-                    ellipse.Fill = new SolidColorBrush(Colors.Yellow);
+                    // ellipse.Fill = new SolidColorBrush(Colors.Yellow);
                 }
 
                 Canvas.SetLeft(ellipse, point.X - JointThickness / 2);

@@ -20,6 +20,7 @@ namespace Kinect8
 
         public Color BodyColor { get; set; }
 
+        public List<Ellipse> RightHandLocations { get; set; }
         // ellipse representing left handstate
         public Ellipse HandLeftEllipse { get; set; }
 
@@ -49,6 +50,9 @@ namespace Kinect8
             {
                 Visibility = Visibility.Collapsed
             };
+
+            this.RightHandLocations = new List<Ellipse>() { this.HandRightEllipse };
+             
 
             // a joint defined as a jointType with a point location in XY space represented by an ellipse
             this.JointPoints = new Dictionary<JointType, Ellipse>();
