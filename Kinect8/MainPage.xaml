@@ -15,7 +15,7 @@
                 <RowDefinition Height="100"/>
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Style="{StaticResource SubheaderTextBlockStyle}" Text="{Binding StatusText}"/>
-            <Image x:Name="FrameDisplayImage" Grid.Row="1" Stretch="Uniform" />
+            <Image x:Name="FrameDisplayImage" Grid.Row="1" Stretch="Fill" />
             <Viewbox Grid.Row="1" HorizontalAlignment="Center">
                 <Grid x:Name="BodyJointsGrid" Background="Transparent" Width="512" Height="414" />
             </Viewbox>

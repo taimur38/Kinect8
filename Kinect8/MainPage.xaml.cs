@@ -57,12 +57,14 @@ namespace Kinect8
         private ushort[] ifFrameData;
         private byte[] irPixels = null;
 
-        private const float InfraredSourceValueMaximum = (float)500; //ushort.MaxValue;
+        private const float InfraredSourceValueMaximum = (float)ushort.MaxValue;
         private const float InfraredOutputValueMinimum = 0.01f;
         private const float InfraredOutputValueMaximum = 1.0f;
 
         private const float InfraredSceneValueAverage = 0.08f;
         private const float InfraredSceneStandardDeviations = 3.0f;
+
+        private Random rand = new Random();
 
         //Depth shit
         private ushort[] depthFrameData = null;
@@ -479,6 +481,12 @@ namespace Kinect8
         private void ConvertInfraredDataToPixels()
         {
             int colorPixelIndex = 0;
+            double r = rand.NextDouble();
+            double g = rand.NextDouble();
+            double b = rand.NextDouble();
+            float c = 255;
+            var t = DateTime.Now.Second / 60.0;
+
             for (int i = 0; i < this.ifFrameData.Length; i++)
             {
                 float intensityRatio = (float)this.ifFrameData[i] / InfraredSourceValueMaximum;
@@ -487,11 +495,22 @@ namespace Kinect8
 
                 intensityRatio = Math.Max(InfraredOutputValueMaximum, intensityRatio);
 
-                byte intensity = (byte)(intensityRatio * 255.0f);
-                this.irPixels[colorPixelIndex++] = intensity;
-                this.irPixels[colorPixelIndex++] = intensity;
-                this.irPixels[colorPixelIndex++] = intensity;
-                this.irPixels[colorPixelIndex++] = intensity;
+                double intensity;
+                if (intensityRatio > 1.5)
+                {
+                    //intensity = intensityRatio * 255.0f;
+                    intensity = 1; 
+                }
+                else
+                {
+                    intensity = 0;
+                }
+
+
+                this.irPixels[colorPixelIndex++] = (byte)(r * c * intensity % 255.0f);
+                this.irPixels[colorPixelIndex++] = (byte)(g * c * intensity % 255.0f);
+                this.irPixels[colorPixelIndex++] = (byte)(b * c * intensity % 255.0f);
+                this.irPixels[colorPixelIndex++] = (byte)(1 * 255.0f);
             }
         }
 
@@ -507,10 +526,58 @@ namespace Kinect8
 
                 int intensity = (depth >= 0 && depth <= maxDepth ? (depth / mapDepthToByte) : 0);
 
-                this.depthPixels[colorPixelIndex++] = (byte)( .4 * intensity + .6);
-                this.depthPixels[colorPixelIndex++] = (byte)( .8 * intensity);
-                this.depthPixels[colorPixelIndex++] = (byte)( .5 * intensity + .3);
-                this.depthPixels[colorPixelIndex++] = 255;
+                /*if(depth > 100)
+                {
+                    this.depthPixels[colorPixelIndex++] = (byte)(intensity);
+                    this.depthPixels[colorPixelIndex++] = (byte)(intensity);
+                    this.depthPixels[colorPixelIndex++] = (byte)(intensity);
+                    this.depthPixels[colorPixelIndex++] = 255;
+                    continue;
+                }*/
+
+                var bandWidth = 50;
+
+                int zone = depth / bandWidth;
+
+                if (depth > 2000 || depth <= minDepth)
+                {
+                    this.depthPixels[colorPixelIndex++] = (byte)(0);
+                    this.depthPixels[colorPixelIndex++] = (byte)(0);
+                    this.depthPixels[colorPixelIndex++] = (byte)(0);
+                    this.depthPixels[colorPixelIndex++] = (byte)(255);
+                    continue;
+                }
+ 
+                switch(zone % 4)
+                {
+                    case 0:
+                        this.depthPixels[colorPixelIndex++] = (byte)(10);
+                        this.depthPixels[colorPixelIndex++] = (byte)(200);
+                        this.depthPixels[colorPixelIndex++] = (byte)(40);
+                        break;
+                    case 1:
+                        this.depthPixels[colorPixelIndex++] = (byte)(200);
+                        this.depthPixels[colorPixelIndex++] = (byte)(200);
+                        this.depthPixels[colorPixelIndex++] = (byte)(40);
+                        break;
+                    case 2:
+                        this.depthPixels[colorPixelIndex++] = (byte)(0);
+                        this.depthPixels[colorPixelIndex++] = (byte)(10);
+                        this.depthPixels[colorPixelIndex++] = (byte)(240);
+                        break;
+                    case 3:
+                        this.depthPixels[colorPixelIndex++] = (byte)(10);
+                        this.depthPixels[colorPixelIndex++] = (byte)(200);
+                        this.depthPixels[colorPixelIndex++] = (byte)(200);
+                        break;
+                }
+
+                /*{ 
+                    this.depthPixels[colorPixelIndex++] = (byte)(intensity);
+                    this.depthPixels[colorPixelIndex++] = (byte)(intensity);
+                    this.depthPixels[colorPixelIndex++] = (byte)(intensity);
+                }*/
+                    this.depthPixels[colorPixelIndex++] = 255;
             }
         }
 
