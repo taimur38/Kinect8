@@ -77,6 +77,22 @@ namespace Kinect8
         private Canvas canvas;
         KinectSensor sensor;
 
+
+        //draw shit
+        static JointType[] selectJoints = new JointType[] {
+            JointType.HandRight,
+            JointType.HandLeft,
+            JointType.ElbowLeft,
+            JointType.ElbowRight,
+            JointType.ShoulderRight,
+            JointType.ShoulderLeft,
+            JointType.WristLeft,
+            JointType.WristRight
+        };
+
+        static int numPoints = 100;
+        Ellipse[] points = new Ellipse[numPoints];
+
         private void SetupCurrentDisplay(DisplayFrameType newDisplayFrameType)
         {
             currentDisplayFrameType = newDisplayFrameType;
@@ -323,6 +339,19 @@ namespace Kinect8
             FrameDisplayImage.Source = this.bitmap;
         }
 
+        int numEllipse = 0;
+        int maxChildren = 500 * selectJoints.Length;
+        int thing = 0;
+        SolidColorBrush[] colors = new SolidColorBrush[]
+        {
+            new SolidColorBrush(Colors.LightBlue),
+            new SolidColorBrush(Colors.LightGreen),
+            new SolidColorBrush(Colors.PaleVioletRed),
+            new SolidColorBrush(Colors.Azure),
+            new SolidColorBrush(Colors.Crimson),
+            new SolidColorBrush(Colors.DarkOliveGreen),
+            new SolidColorBrush(Colors.Gold)
+        };
         private void DrawShit(BodyFrame bf)
         {
             if (bf == null)
@@ -330,27 +359,41 @@ namespace Kinect8
             Body[] bodies = new Body[this.sensor.BodyFrameSource.BodyCount];
 
             bf.GetAndRefreshBodyData(bodies);
-            foreach (var body in bodies)
+            var color = colors[(thing++ / 20) % colors.Length];
+
+            for(int x = 0; x < bodies.Length; x++)
             {
-                var hand = body.Joints[JointType.HandRight];
-
-                var color = Colors.LightGreen;
-                if (body.HandRightConfidence == TrackingConfidence.Low)
-                    color = Colors.CornflowerBlue;
-
-                var point = this.coordinateMapper.MapCameraPointToDepthSpace(hand.Position);
-
-                var ellipse = new Ellipse()
+                var body = bodies[x];
+                //var color = Colors.LightBlue;
+                foreach(var joint in body.Joints.Keys)
                 {
-                    Visibility = Visibility.Visible,
-                    Height = 4.0,
-                    Width = 4.0,
-                    Fill = new SolidColorBrush(color)
-                };
+                    var hand = body.Joints[joint];
 
-                this.canvas.Children.Add(ellipse);
-                Canvas.SetLeft(ellipse, point.X);
-                Canvas.SetTop(ellipse, point.Y);
+                    var point = this.coordinateMapper.MapCameraPointToDepthSpace(hand.Position);
+
+                    if(this.canvas.Children.Count >= maxChildren)
+                    {
+                        var ellipse = (Ellipse)this.canvas.Children[numEllipse++ % maxChildren];
+                        ellipse.Fill = color;
+                        Canvas.SetLeft(ellipse, point.X);
+                        Canvas.SetTop(ellipse, point.Y);
+                    }
+                    else
+                    {
+                        var ellipse = new Ellipse()
+                        {
+                            Visibility = Visibility.Visible,
+                            Height = 10.0,
+                            Width = 10.0,
+                            Fill = color
+                        };
+
+                        this.canvas.Children.Add(ellipse);
+                        
+                        Canvas.SetLeft(ellipse, point.X);
+                        Canvas.SetTop(ellipse, point.Y);
+                    }
+                }
             }
         }
 
@@ -539,7 +582,7 @@ namespace Kinect8
 
                 int zone = depth / bandWidth;
 
-                if (depth > 2000 || depth <= minDepth)
+                if (depth > 9000 || depth <= minDepth)
                 {
                     this.depthPixels[colorPixelIndex++] = (byte)(0);
                     this.depthPixels[colorPixelIndex++] = (byte)(0);
