@@ -14,6 +14,7 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using WindowsPreview.Kinect;
 using Windows.UI.Xaml.Media.Imaging;
+using Microsoft.Kinect.Face;
 
 using Windows.Storage.Streams;
 using System.Runtime.InteropServices;
@@ -31,7 +32,8 @@ namespace Kinect8
         Depth,
         BodyMask,
         BodyJoints,
-        Draw
+        Draw,
+        Blob 
     }
 
     /// <summary>
@@ -167,7 +169,8 @@ namespace Kinect8
                     this.BodyJointsGrid.Children.Clear();
                     this.BodyJointsGrid.Children.Add(this.canvas);
                     break;
-                    
+                case DisplayFrameType.Blob:
+                    break;
                 default:
                     break;
             }
@@ -340,7 +343,7 @@ namespace Kinect8
         }
 
         int numEllipse = 0;
-        int maxChildren = 500 * selectJoints.Length;
+        int maxChildren = 900 * selectJoints.Length;
         int thing = 0;
         SolidColorBrush[] colors = new SolidColorBrush[]
         {
@@ -374,7 +377,7 @@ namespace Kinect8
                     if(this.canvas.Children.Count >= maxChildren)
                     {
                         var ellipse = (Ellipse)this.canvas.Children[numEllipse++ % maxChildren];
-                        ellipse.Fill = color;
+                        // ellipse.Fill = color;
                         Canvas.SetLeft(ellipse, point.X);
                         Canvas.SetTop(ellipse, point.Y);
                     }
@@ -383,9 +386,9 @@ namespace Kinect8
                         var ellipse = new Ellipse()
                         {
                             Visibility = Visibility.Visible,
-                            Height = 10.0,
-                            Width = 10.0,
-                            Fill = color
+                            Height = 3.0,
+                            Width = 3.0,
+                            Fill = new SolidColorBrush(Colors.White) 
                         };
 
                         this.canvas.Children.Add(ellipse);
@@ -582,7 +585,8 @@ namespace Kinect8
 
                 int zone = depth / bandWidth;
 
-                if (depth > 9000 || depth <= minDepth)
+
+                if (depth > 3000 || depth <= minDepth)
                 {
                     this.depthPixels[colorPixelIndex++] = (byte)(0);
                     this.depthPixels[colorPixelIndex++] = (byte)(0);
