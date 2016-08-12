@@ -33,7 +33,8 @@ namespace Kinect8
         BodyMask,
         BodyJoints,
         Draw,
-        Blob 
+        Blob,
+        Sound
     }
 
     /// <summary>
@@ -160,6 +161,7 @@ namespace Kinect8
                     this.BodyJointsGrid.Children.Add(this.canvas);
                     bodiesManager = new BodiesManager(this.coordinateMapper, this.canvas, this.sensor.BodyFrameSource.BodyCount);
                     break;
+
                 case DisplayFrameType.Draw:
                     this.canvas = new Canvas();
                     this.canvas.Width = this.BodyJointsGrid.Width;
@@ -169,7 +171,20 @@ namespace Kinect8
                     this.BodyJointsGrid.Children.Clear();
                     this.BodyJointsGrid.Children.Add(this.canvas);
                     break;
-                case DisplayFrameType.Blob:
+
+                case DisplayFrameType.Sound:
+                    colorFrameDescription = this.sensor.ColorFrameSource.FrameDescription;
+                    this.currentFrameDescription = colorFrameDescription;
+                    this.bitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height);
+
+                    this.canvas = new Canvas();
+                    this.canvas.Width = this.BodyJointsGrid.Width;
+                    this.canvas.Height = this.BodyJointsGrid.Height;
+
+                    this.BodyJointsGrid.Visibility = Visibility.Visible;
+                    this.BodyJointsGrid.Children.Clear();
+                    this.BodyJointsGrid.Children.Add(this.canvas);
+
                     break;
                 default:
                     break;
@@ -184,7 +199,12 @@ namespace Kinect8
 
             this.coordinateMapper = this.sensor.CoordinateMapper;
 
-            this.multiSourceFrameReader = this.sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Infrared | FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.BodyIndex | FrameSourceTypes.Body);
+            this.multiSourceFrameReader = this.sensor.OpenMultiSourceFrameReader(
+                FrameSourceTypes.Infrared | 
+                FrameSourceTypes.Color | 
+                FrameSourceTypes.Depth | 
+                FrameSourceTypes.BodyIndex | 
+                FrameSourceTypes.Body );
 
             this.multiSourceFrameReader.MultiSourceFrameArrived += this.Reader_MultiSourceFrameArrived;
             this.sensor.IsAvailableChanged += this.Sensor_IsAvailableChanged;
@@ -217,7 +237,6 @@ namespace Kinect8
             IBuffer depthFrameDataBuffer = null;
             IBuffer bodyIndexFrameData = null;
             IBufferByteAccess bodyIndexByteAccess = null;
-
             switch (currentDisplayFrameType)
             {
                 case DisplayFrameType.Infrared:
@@ -248,6 +267,12 @@ namespace Kinect8
                     using(bodyFrame = msFrame.BodyFrameReference.AcquireFrame())
                     {
                         DrawShit(bodyFrame);
+                    }
+                    break;
+                case DisplayFrameType.Sound:
+                    using (colorFrame = msFrame.ColorFrameReference.AcquireFrame())
+                    {
+                        DrawSound(colorFrame);
                     }
                     break;
                 case DisplayFrameType.BodyMask:
@@ -334,7 +359,7 @@ namespace Kinect8
                             }
                         }
                     }
-                    bitmapPixelsPointer[colorIndex] *= (uint)4;
+                    bitmapPixelsPointer[colorIndex] *= (uint)0;
                 }
             }
 
@@ -355,6 +380,95 @@ namespace Kinect8
             new SolidColorBrush(Colors.DarkOliveGreen),
             new SolidColorBrush(Colors.Gold)
         };
+
+        int numSoundEllipses = 0;
+        private void DrawSound(ColorFrame colorFrame)
+        {
+            if(colorFrame == null)
+            {
+                return;
+            }
+
+            var beams = sensor.AudioSource.AudioBeams;
+            var maxEllipses = 1;
+            foreach(var beam in beams)
+            {
+                var angle = beam.BeamAngle;
+                Ellipse ellipse = null;
+                TextBlock tb = null;
+
+                if(numSoundEllipses >= maxEllipses)
+                {
+                    ellipse = (Ellipse)canvas.Children[0];
+                    tb = (TextBlock)canvas.Children[1];
+                }
+                else
+                {
+                    ellipse = new Ellipse()
+                    {
+                        Visibility = Visibility.Visible,
+                        Height = 30,
+                        Width = 30,
+                        Fill = new SolidColorBrush(Colors.White)
+                    };
+                    canvas.Children.Add(ellipse);
+                    numSoundEllipses++;
+
+                    tb = new TextBlock()
+                    {
+                        Visibility = Visibility.Visible,
+                        Text = "yo",
+                        Height = 50,
+                        Width = 200
+                    };
+                    canvas.Children.Add(tb);
+                }
+
+                if (beam.BeamAngleConfidence < .5)
+                    ellipse.Fill = new SolidColorBrush(Colors.Blue);
+                else
+                    ellipse.Fill = new SolidColorBrush(Colors.White);
+
+                ellipse.Width = 40 * beam.BeamAngleConfidence;
+                ellipse.Height = 40 * beam.BeamAngleConfidence;
+
+                var x = (angle + 1.0) / 2.0 * canvas.Width;
+                tb.Text = x.ToString();
+
+                Canvas.SetLeft(ellipse, x + ellipse.Width / 2);
+                Canvas.SetTop(ellipse, canvas.ActualHeight / 2);
+
+                Canvas.SetLeft(tb, colorFrame.FrameDescription.Width / 2);
+                Canvas.SetTop(tb, canvas.ActualHeight / 3);
+                
+            }
+
+            bool processed = false;
+
+            FrameDescription colorFrameDescription = colorFrame.FrameDescription;
+
+            if((colorFrameDescription.Width == this.bitmap.PixelWidth) && (colorFrameDescription.Height == this.bitmap.PixelHeight))
+            {
+                if(colorFrame.RawColorImageFormat == ColorImageFormat.Bgra)
+                {
+                    colorFrame.CopyRawFrameDataToBuffer(this.bitmap.PixelBuffer);
+                }
+                else
+                {
+                    colorFrame.CopyConvertedFrameDataToBuffer(this.bitmap.PixelBuffer, ColorImageFormat.Bgra);
+                }
+
+                processed = true;
+            }
+
+            if(processed)
+            {
+                this.bitmap.Invalidate();
+                FrameDisplayImage.Source = this.bitmap;
+            }
+
+        }
+
         private void DrawShit(BodyFrame bf)
         {
             if (bf == null)
@@ -377,7 +491,15 @@ namespace Kinect8
                     if(this.canvas.Children.Count >= maxChildren)
                     {
                         var ellipse = (Ellipse)this.canvas.Children[numEllipse++ % maxChildren];
-                        // ellipse.Fill = color;
+                        // compare to previous joint position, calculate speed, if below threshold make it transparent
+                        var prevX = Canvas.GetLeft(ellipse);
+                        var prevY = Canvas.GetLeft(ellipse);
+
+                        if (Math.Abs(prevX - point.X) + Math.Abs(prevY - point.Y) > 0)
+                            ellipse.Fill = new SolidColorBrush(Colors.White);
+                        else
+                            ellipse.Fill = new SolidColorBrush(Colors.Transparent);
+
                         Canvas.SetLeft(ellipse, point.X);
                         Canvas.SetTop(ellipse, point.Y);
                     }
@@ -492,6 +614,11 @@ namespace Kinect8
             }
         }
 
+        private void SoundButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetupCurrentDisplay(DisplayFrameType.Sound);
+        }
+
         private void InfraredButton_Click(object sender, RoutedEventArgs e)
         {
             SetupCurrentDisplay(DisplayFrameType.Infrared);
@@ -531,7 +658,7 @@ namespace Kinect8
             double g = rand.NextDouble();
             double b = rand.NextDouble();
             float c = 255;
-            var t = DateTime.Now.Second / 60.0;
+            // var t = DateTime.Now.Second / 60.0;
 
             for (int i = 0; i < this.ifFrameData.Length; i++)
             {
@@ -539,13 +666,13 @@ namespace Kinect8
 
                 intensityRatio /= InfraredSceneValueAverage * InfraredSceneStandardDeviations;
 
-                intensityRatio = Math.Max(InfraredOutputValueMaximum, intensityRatio);
+                //intensityRatio = Math.Max(InfraredOutputValueMaximum, intensityRatio);
 
                 double intensity;
-                if (intensityRatio > 1.5)
+                if (intensityRatio > 0.05)
                 {
-                    //intensity = intensityRatio * 255.0f;
-                    intensity = 1; 
+                    intensity = intensityRatio * 255.0f;
+                    // intensity = 254.0f; 
                 }
                 else
                 {
@@ -553,9 +680,9 @@ namespace Kinect8
                 }
 
 
-                this.irPixels[colorPixelIndex++] = (byte)(r * c * intensity % 255.0f);
-                this.irPixels[colorPixelIndex++] = (byte)(g * c * intensity % 255.0f);
-                this.irPixels[colorPixelIndex++] = (byte)(b * c * intensity % 255.0f);
+                this.irPixels[colorPixelIndex++] = (byte)(intensity % 255.0f);
+                this.irPixels[colorPixelIndex++] = (byte)(intensity % 255.0f);
+                this.irPixels[colorPixelIndex++] = (byte)(intensity % 255.0f);
                 this.irPixels[colorPixelIndex++] = (byte)(1 * 255.0f);
             }
         }
