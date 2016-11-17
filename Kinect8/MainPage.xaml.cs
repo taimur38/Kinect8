@@ -34,7 +34,8 @@ namespace Kinect8
         BodyJoints,
         Draw,
         Blob,
-        Sound
+        Sound,
+        Faces
     }
 
     /// <summary>
@@ -56,6 +57,7 @@ namespace Kinect8
         private MultiSourceFrameReader multiSourceFrameReader = null;
         private CoordinateMapper coordinateMapper = null;
         private BodiesManager bodiesManager = null;
+        private FaceFrameReader faceFrameReader = null;
 
         private ushort[] ifFrameData;
         private byte[] irPixels = null;
@@ -66,6 +68,7 @@ namespace Kinect8
 
         private const float InfraredSceneValueAverage = 0.08f;
         private const float InfraredSceneStandardDeviations = 3.0f;
+
 
         private Random rand = new Random();
 
@@ -186,6 +189,21 @@ namespace Kinect8
                     this.BodyJointsGrid.Children.Add(this.canvas);
 
                     break;
+
+                case DisplayFrameType.Faces:
+
+                    colorFrameDescription = this.sensor.ColorFrameSource.FrameDescription;
+                    this.currentFrameDescription = colorFrameDescription;
+                    this.bitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height);
+                    this.canvas = new Canvas();
+                    this.canvas.Width = this.BodyJointsGrid.Width;
+                    this.canvas.Height = this.BodyJointsGrid.Height;
+
+                    this.BodyJointsGrid.Visibility = Visibility.Visible;
+                    this.BodyJointsGrid.Children.Clear();
+                    this.BodyJointsGrid.Children.Add(this.canvas);
+                    break;
+             
                 default:
                     break;
             }
@@ -194,10 +212,20 @@ namespace Kinect8
         public MainPage()
         {
             this.sensor = KinectSensor.GetDefault();
+            this.sensor.Open();
 
             SetupCurrentDisplay(DEFAULT_DISPLAY_TYPE);
 
             this.coordinateMapper = this.sensor.CoordinateMapper;
+
+            FaceFrameSource face_source = new FaceFrameSource(sensor, 0, FaceFrameFeatures.BoundingBoxInColorSpace | 
+                FaceFrameFeatures.PointsInColorSpace | FaceFrameFeatures.FaceEngagement | FaceFrameFeatures.Glasses 
+                | FaceFrameFeatures.Happy | FaceFrameFeatures.LeftEyeClosed  | FaceFrameFeatures.MouthOpen
+                );
+
+            faceFrameReader = face_source.OpenReader();
+
+            faceFrameReader.FrameArrived += FaceFrameReader_FrameArrived;
 
             this.multiSourceFrameReader = this.sensor.OpenMultiSourceFrameReader(
                 FrameSourceTypes.Infrared | 
@@ -209,8 +237,55 @@ namespace Kinect8
             this.multiSourceFrameReader.MultiSourceFrameArrived += this.Reader_MultiSourceFrameArrived;
             this.sensor.IsAvailableChanged += this.Sensor_IsAvailableChanged;
 
-            this.sensor.Open();
             this.InitializeComponent();
+        }
+
+        private void FaceFrameReader_FrameArrived(FaceFrameReader sender, FaceFrameArrivedEventArgs args)
+        {
+
+            using (var frame = args.FrameReference.AcquireFrame())
+            {
+                if(currentDisplayFrameType != DisplayFrameType.Faces)
+                {
+                    return;
+                }
+
+                if(frame == null)
+                {
+                    return;
+                }
+
+                FaceFrameResult res = frame.FaceFrameResult;
+
+                if(res == null)
+                {
+                    return;
+                }
+
+                var bound = res.FaceBoundingBoxInColorSpace;
+                Rectangle rect;
+                if(canvas.Children.Count > 0)
+                {
+                    rect = (Rectangle)canvas.Children[0];
+                } 
+                else
+                {
+                    rect = new Rectangle()
+                    {
+                        Width = bound.Right - bound.Left,
+                        Height = bound.Top - bound.Bottom,
+                        Visibility = Visibility.Visible,
+                        Stroke = new SolidColorBrush(Colors.Yellow),
+                        Fill = new SolidColorBrush(Colors.Yellow),
+                        StrokeThickness = 10
+                    };
+
+                    canvas.Children.Add(rect);
+                }
+
+                Canvas.SetLeft(rect, bound.Left);
+                Canvas.SetTop(rect, bound.Top);
+            }
         }
 
         private void Sensor_IsAvailableChanged(KinectSensor sender, IsAvailableChangedEventArgs args)
@@ -273,6 +348,12 @@ namespace Kinect8
                     using (colorFrame = msFrame.ColorFrameReference.AcquireFrame())
                     {
                         DrawSound(colorFrame);
+                    }
+                    break;
+                case DisplayFrameType.Faces:
+                    using(colorFrame = msFrame.ColorFrameReference.AcquireFrame())
+                    {
+                        ShowColorFrame(colorFrame);
                     }
                     break;
                 case DisplayFrameType.BodyMask:
@@ -617,6 +698,11 @@ namespace Kinect8
         private void SoundButton_Click(object sender, RoutedEventArgs e)
         {
             SetupCurrentDisplay(DisplayFrameType.Sound);
+        }
+
+        private void FacesButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetupCurrentDisplay(DisplayFrameType.Faces);
         }
 
         private void InfraredButton_Click(object sender, RoutedEventArgs e)
